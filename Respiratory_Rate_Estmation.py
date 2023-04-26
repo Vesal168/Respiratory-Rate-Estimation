@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 
 
 # 1. Load the audio signal using scipy.io.wavfile.read()
+
 fs, audio = wavfile.read('Data/2023-04-20_19-14-01.wav')
 print(f"Audio Original: {audio} and Sampling Rate: {fs}")
 
 # 2. Apply a band-pass filter [500-5000] Hz to remove noise and baseline drift using scipy.signal.butter() and scipy.signal.filtfilt():
-# cutoff_freq = 100 / sr
-# Filter parameters
+
 lowcut = 500  # Lower cutoff frequency (Hz)
 highcut = 5000  # Upper cutoff frequency (Hz)
 # fs = 44100  # Sampling frequency (Hz)
@@ -27,14 +27,9 @@ audio_band_pass = signal.filtfilt(b, a, audio)
 print(f"Audio after Applies a Band-Pass Filtered: {audio_band_pass}")
 
 # 3. Find the Envelope of the signal using Hilbert Transform
+
 amplitude_envelope  = np.abs(signal.hilbert(audio_band_pass))
 print(f"Envelope of the signal: {amplitude_envelope}")
-
-# Resample the signal to a lower frequency (e.g., 1000 Hz) using scipy.signal.resample():
-# audio = signal.resample(audio, int(len(audio) / float(sr) * 1000))
-# sr = 1000
-# print(f"Audio after Resample: {audio}")
-# 4. Digitize the signal at a sampling rate of 100Hz
 
 fs_new = 100
 num_samples = int(np.floor(len(amplitude_envelope) / fs * fs_new))
@@ -44,11 +39,9 @@ for i in range(num_samples):
     end = int(start + fs / fs_new)
     envelope_digitized[i] = np.mean(amplitude_envelope[start:end])
 
-# 5. Cubic Spline Interpolation @ fixed 100Hz
-# Assume you have a signal `y` that has been digitized at a fixed rate of 100Hz
-# and an associated time array `t` with the same number of samples
-t = np.linspace(0, len(envelope_digitized) / 100, len(envelope_digitized))  # time points of the original data
+# 4. Cubic Spline Interpolation @ fixed 100Hz
 
+t = np.linspace(0, len(envelope_digitized) / 100, len(envelope_digitized))  # time points of the original data
 # Find the envelope of the signal using Hilbert transform as shown in the previous step
 y_hilbert = np.abs(signal.hilbert(envelope_digitized))
 t_new1 = np.arange(0, len(y_hilbert) / 100, 1/100)  # time points of the resampled data
@@ -57,7 +50,8 @@ cs = CubicSpline(t, y_hilbert)
 envelope_resampled  = cs(t_new1)
 print(f"Cubic Spline Interpolation @ fixed 100Hz of Signal Resampleed{envelope_resampled }")
 
-# 6. Apply a band-pass filter [0.19-4.6] Hz
+# 5. Apply a band-pass filter [0.19-4.6] Hz
+
 nyquist = 0.5 * 100  # Nyquist frequency is half the sampling rate
 lowcut = 0.19 / nyquist
 highcut = 4.6 / nyquist
@@ -65,50 +59,43 @@ b, a = signal.butter(4, [lowcut, highcut], btype='band')
 envelope_filtered = signal.filtfilt(b, a, envelope_resampled)
 print(f"Band-pass filter [0.19-4.6] Hz: {envelope_filtered}")
 
-# 7. crop the signal from index 100 to 1000
+# 6. crop the signal from index 100 to 1000
 cropped_signal = envelope_filtered[100:1000]
 print(f"crop the signal from index 100 to 1000: {cropped_signal}")
 
-# 8. Down-sample to 10Hz
+# 7. Down-sample to 10Hz
 fs = 100  # original sampling frequency
 fs_new = 10  # new sampling frequency
 audio_ds = decimate(cropped_signal, q=int(fs / fs_new), zero_phase=True)
 print(f"Down-sample to 10Hz: {audio_ds}")
 
-# 9. Calculate the PSD using the welch function from scipy.signal
+# 8. Calculate the PSD using the welch function from scipy.signal
 freqs, psd = signal.welch(audio_ds, fs=10, nperseg=1024)
 print(f"Power Spectral Density: {psd}")
 print(f"Frequency of Power Spectral Density: {freqs}")
 
-# 10. Detect peaks in PSD
+# 9. Detect peaks in PSD
 peaks1, _ = signal.find_peaks(psd, height=10)  # height is the minimum height of a peak
 peak_frequencies = psd[peaks1]  # Get the corresponding frequencies
 print(f"Peak of PSD: {peaks1}")
 print(f"Peak of Frequency of Power Spectral Density: {peak_frequencies}")
 
 
-# :Calculate the time intervals between the peaks to estimate the respiratory rate
+# 10. Calculate the time intervals between the peaks to estimate the respiratory rate
 # intervals = np.diff(peaks1) / fs
 # rr = 60 / np.mean(intervals)
+
 intervals = np.diff(peaks1)
 rr = 60 / intervals
 print(f"Time intervals: {intervals}")
 print(f"Estimate the Respiratory Rate: {rr}")
 
-
-# Calculate median and IQR of respiratory rates
+# 11. Calculate median and IQR of respiratory rates
 median_rate = np.median(rr)
 iqr = np.percentile(rr, 75) - np.percentile(rr, 25)
 print(f"Median of RR: {median_rate}")
 print(f"Interquartilie Range of : {iqr}")
-# # generate a sound spectrogram:
-# # Set the parameters for the spectrogram
-# overlap = 0.5
-# nfft = win_size
-# Compute the spectrogram
-# frequencies, times, spectrogram_data  = signal.spectrogram(audio, fs=sr, window='hann', nperseg=win_size, noverlap=int(win_size*overlap), nfft=nfft)
 frequencies, times, spectrogram_data  = signal.spectrogram(audio, fs=fs)
-
 
 # Visualization
 # 1. Plot the Original Signal
